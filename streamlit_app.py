@@ -9,6 +9,62 @@ st.set_page_config(
     layout="wide",
 )
 
+# Estilos CSS con importación de la fuente Inter Display (Light - 300)
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter+Display:wght@300;400;600;700&display=swap');
+
+    /* Aplicar la fuente general a toda la app */
+    html, body, [class*="css"] {
+        font-family: 'Inter Display', sans-serif;
+        font-weight: 300; /* Light */
+    }
+    
+    .main-header {
+        font-family: 'Inter Display', sans-serif;
+        font-size: 28px;
+        color: #1f4e78;
+        font-weight: 600; /* Semi-bold para el título */
+        text-align: left;
+        border-bottom: 2px solid #1f4e78;
+        padding-bottom: 5px;
+        margin-bottom: 20px;
+    }
+    
+    .card {
+        background-color: #f8f9fa;
+        border: 1px solid #dcdcdc;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+        font-family: 'Inter Display', sans-serif;
+        font-weight: 300; /* Light para el contenido de las tarjetas */
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# Título Principal
+st.markdown(
+    '<div class="main-header">MÓDULO DE DISEÑO DE COSTANERAS — INGRESO DE DATOS</div>',
+    unsafe_allow_html=True,
+)
+
+# (A partir de aquí continúa el resto del código de las columnas e inputs...)
+import numpy as np
+import plotly.graph_objects as go
+import streamlit as st
+
+# Configuración de la página web
+st.set_page_config(
+    page_title="Diseño de Costaneras - Panel de Ingreso",
+    page_icon="🏗️",
+    layout="wide",
+)
+
 # Estilos CSS personalizados para una apariencia técnica y profesional (tarjetas, colores corporativos)
 st.markdown(
     """
