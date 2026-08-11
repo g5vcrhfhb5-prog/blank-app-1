@@ -2,8 +2,8 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 import folium
-from folium.plugins import Geocoder
 from streamlit_folium import st_folium
+import requests
 
 # Configuración de la página web
 st.set_page_config(
@@ -43,34 +43,37 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- FUNCIÓN AUXILIAR PARA SINCRONIZAR SLIDER Y CAJA NUMÉRICA ---
+# --- FUNCIÓN AUXILIAR CORREGIDA PARA SINCRONIZAR SLIDER Y CAJA NUMÉRICA ---
 def synced_slider_number(label, min_val, max_val, default_val, step_val, key_base):
-    # Inicializar el valor en el estado de la sesión si no existe
-    if key_base not in st.session_state:
-        st.session_state[key_base] = default_val
+    # Inicializar variables de estado si no existen
+    if f"{key_base}_sl" not in st.session_state:
+        st.session_state[f"{key_base}_sl"] = default_val
+    if f"{key_base}_num" not in st.session_state:
+        st.session_state[f"{key_base}_num"] = default_val
+
+    # Funciones Callback para actualizar mutuamente
+    def sync_from_slider():
+        st.session_state[f"{key_base}_num"] = st.session_state[f"{key_base}_sl"]
         
-    # Callbacks para actualizar mutuamente los widgets
-    def update_from_slider():
-        st.session_state[key_base] = st.session_state[f"{key_base}_sl"]
-    def update_from_num():
-        st.session_state[key_base] = st.session_state[f"{key_base}_num"]
+    def sync_from_num():
+        st.session_state[f"{key_base}_sl"] = st.session_state[f"{key_base}_num"]
 
     st.markdown(f"**{label}**")
-    col1, col2 = st.columns([3, 1]) # Proporción: Slider toma 3/4, Caja toma 1/4
+    col1, col2 = st.columns([3, 1]) 
     
     with col1:
         st.slider(
             label, min_value=min_val, max_value=max_val, step=step_val,
-            key=f"{key_base}_sl", value=st.session_state[key_base], 
-            on_change=update_from_slider, label_visibility="collapsed"
+            key=f"{key_base}_sl", on_change=sync_from_slider, label_visibility="collapsed"
         )
     with col2:
         st.number_input(
             label, min_value=min_val, max_value=max_val, step=step_val,
-            key=f"{key_base}_num", value=st.session_state[key_base], 
-            on_change=update_from_num, label_visibility="collapsed"
+            key=f"{key_base}_num", on_change=sync_from_num, label_visibility="collapsed"
         )
-    return st.session_state[key_base]
+    # Retornar el valor actual sincronizado para usarlo en los gráficos
+    return st.session_state[f"{key_base}_num"]
+
 
 # Títulos
 st.markdown('<div class="main-title">DISEÑO DE COSTANERAS</div>', unsafe_allow_html=True)
@@ -83,7 +86,6 @@ with col_inputs:
     st.markdown("### 📥 Parámetros de Entrada")
 
     with st.container(border=True):
-        # 1. Datos Geométricos (Usando la función sincronizada)
         st.markdown("#### **1. Geometría de la Estructura**")
         
         sep_costaneras = synced_slider_number(
@@ -110,30 +112,52 @@ with col_inputs:
 
         # 2. Emplazamiento y Ubicación con Mapa Interactivo
         st.markdown("#### **2. Emplazamiento y Zona**")
-        st.markdown("Haz clic en el mapa o usa la lupa para buscar tu ciudad. Las coordenadas se extraerán automáticamente.")
+        st.markdown("Haz clic en cualquier punto del mapa de Chile para establecer la ubicación.")
         
         # Crear mapa centrado en Chile
         m = folium.Map(location=[-33.4569, -70.6482], zoom_start=5)
-        # Agregar barra de búsqueda (Geocoder)
-        Geocoder(add_marker=True).add_to(m)
+        # Añadir funcionalidad de clic para mostrar coordenadas
+        m.add_child(folium.LatLngPopup())
         
-        # Renderizar mapa en Streamlit y capturar clics
-        map_data = st_folium(m, height=350, use_container_width=True)
+        # Renderizar mapa en Streamlit y capturar exclusivamente los clics para no recargar en exceso
+        map_data = st_folium(m, height=350, use_container_width=True, returned_objects=["last_clicked"])
         
-        # Extraer Latitud y Longitud
+        # Extraer Latitud y Longitud por defecto (Santiago)
         latitud = -33.4569
         longitud = -70.6482
+        altitud_mapa = 500.0
+        
         if map_data and map_data.get("last_clicked"):
             latitud = map_data["last_clicked"]["lat"]
             longitud = map_data["last_clicked"]["lng"]
+            
+            # API gratuita de Open-Meteo para extraer la elevación del punto clickeado
+            try:
+                url = f"https://api.open-meteo.com/v1/elevation?latitude={latitud}&longitude={longitud}"
+                resp = requests.get(url).json()
+                altitud_mapa = resp['elevation'][0]
+            except Exception as e:
+                altitud_mapa = 0.0
             
         c_lat, c_lon = st.columns(2)
         c_lat.info(f"**Latitud:** {latitud:.4f}°")
         c_lon.info(f"**Longitud:** {longitud:.4f}°")
 
-        altitud = st.number_input(
-            "Altitud de la zona [m.s.n.m]", min_value=0.0, value=50.0, step=5.0
+        # Control para elegir el origen de la altitud
+        modo_altitud = st.radio(
+            "Origen de la Altitud", 
+            ["Extraer del Mapa", "Ingreso Manual"], 
+            horizontal=True
         )
+        
+        if modo_altitud == "Extraer del Mapa":
+            altitud = st.number_input(
+                "Altitud extraída [m.s.n.m]", value=float(altitud_mapa), disabled=True
+            )
+        else:
+            altitud = st.number_input(
+                "Altitud de la zona [m.s.n.m]", min_value=0.0, value=50.0, step=5.0
+            )
 
 with col_visual:
     st.markdown("### 📊 Esquemas Geométricos y Visualización")
@@ -147,6 +171,7 @@ with col_visual:
     with st.container(border=True):
         st.markdown("**Esquema 1: Inclinación de Cubierta y Geometría**")
 
+        # Variables conectadas dinámicamente a los inputs
         span = dist_marcos  
         height = span * (pendiente_i / 100.0) / 2.0  
 
