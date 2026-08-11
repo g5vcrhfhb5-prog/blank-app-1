@@ -45,13 +45,11 @@ st.markdown(
 
 # --- FUNCIÓN AUXILIAR PARA SINCRONIZAR SLIDER Y CAJA NUMÉRICA ---
 def synced_slider_number(label, min_val, max_val, default_val, step_val, key_base):
-    # Inicializar variables de estado si no existen
     if f"{key_base}_sl" not in st.session_state:
         st.session_state[f"{key_base}_sl"] = default_val
     if f"{key_base}_num" not in st.session_state:
         st.session_state[f"{key_base}_num"] = default_val
 
-    # Funciones Callback para actualizar mutuamente
     def sync_from_slider():
         st.session_state[f"{key_base}_num"] = st.session_state[f"{key_base}_sl"]
         
@@ -71,7 +69,6 @@ def synced_slider_number(label, min_val, max_val, default_val, step_val, key_bas
             label, min_value=min_val, max_value=max_val, step=step_val,
             key=f"{key_base}_num", on_change=sync_from_num, label_visibility="collapsed"
         )
-    # Retornar el valor actual sincronizado para usarlo en los cálculos
     return st.session_state[f"{key_base}_num"]
 
 
@@ -117,15 +114,11 @@ with col_inputs:
         st.markdown("#### **2. Emplazamiento y Zona**")
         st.markdown("Haz clic en cualquier punto del mapa de Chile para establecer la ubicación y altitud.")
         
-        # Crear mapa centrado en Chile
         m = folium.Map(location=[-33.4569, -70.6482], zoom_start=5)
-        # Añadir funcionalidad de clic para mostrar coordenadas
         m.add_child(folium.LatLngPopup())
         
-        # Renderizar mapa en Streamlit y capturar exclusivamente los clics
         map_data = st_folium(m, height=350, use_container_width=True, returned_objects=["last_clicked"])
         
-        # Extraer Latitud y Longitud por defecto
         latitud = -33.4569
         longitud = -70.6482
         altitud_mapa = 500.0
@@ -134,7 +127,6 @@ with col_inputs:
             latitud = map_data["last_clicked"]["lat"]
             longitud = map_data["last_clicked"]["lng"]
             
-            # API gratuita de Open-Meteo para extraer la elevación del punto clickeado
             try:
                 url = f"https://api.open-meteo.com/v1/elevation?latitude={latitud}&longitude={longitud}"
                 resp = requests.get(url).json()
@@ -146,7 +138,6 @@ with col_inputs:
         c_lat.info(f"**Latitud:** {latitud:.4f}°")
         c_lon.info(f"**Longitud:** {longitud:.4f}°")
 
-        # Control para elegir el origen de la altitud
         modo_altitud = st.radio(
             "Origen de la Altitud", 
             ["Extraer del Mapa", "Ingreso Manual"], 
@@ -174,7 +165,6 @@ with col_visual:
     with st.container(border=True):
         st.markdown("**Esquema 1: Inclinación de Cubierta y Geometría**")
 
-        # Variables conectadas dinámicamente al ancho de estructura
         span = ancho_estructura  
         height = span * (pendiente_i / 100.0) / 2.0  
 
@@ -196,12 +186,35 @@ with col_visual:
     with st.container(border=True):
         st.markdown("**Esquema 2: Modulación y Espaciamiento de Costaneras**")
 
-        num_costaneras = int(span / sep_costaneras) if sep_costaneras > 0 else 5
-        x_costaneras = np.linspace(0, span, num_costaneras + 1)
-        y_costaneras = np.where(x_costaneras <= span / 2, (2 * height / span) * x_costaneras, (2 * height / span) * (span - x_costaneras))
+        # Separación horizontal real proyectada
+        sep_x = sep_costaneras * np.cos(np.radians(angulo_techo))
+        
+        # Generar posiciones desde el alero (x=0) hacia la cumbrera (x=span/2)
+        x_left = np.arange(0, span / 2, sep_x).tolist()
+        
+        # Asegurar costaneras en la cumbrera (a 10 cm del eje central)
+        offset_cumbrera = 0.10
+        pos_cumbrera_izq = (span / 2) - offset_cumbrera
+        
+        # Reemplazar la última costanera si solapa, si no, agregarla
+        if len(x_left) > 0 and (pos_cumbrera_izq - x_left[-1]) < 0.20:
+            x_left[-1] = pos_cumbrera_izq
+        else:
+            x_left.append(pos_cumbrera_izq)
+            
+        x_left = np.array(x_left)
+        y_left = (2 * height / span) * x_left
+        
+        # Reflejar para el lado derecho
+        x_right = span - x_left
+        y_right = y_left
+        
+        # Unir ambos lados
+        x_costaneras = np.concatenate((x_left, x_right[::-1]))
+        y_costaneras = np.concatenate((y_left, y_right[::-1]))
 
         fig_mod = go.Figure()
-        fig_mod.add_trace(go.Scatter(x=x_costaneras, y=y_costaneras, mode="markers", name="Posición de Costaneras", marker=dict(color="orange", size=12, symbol="square")))
+        fig_mod.add_trace(go.Scatter(x=x_costaneras, y=y_costaneras, mode="markers", name="Posición de Costaneras", marker=dict(color="orange", size=10, symbol="square")))
         fig_mod.add_trace(go.Scatter(x=[0, span / 2, span], y=[0, height, 0], mode="lines", name="Pendiente", line=dict(color="gray", width=2)))
 
         fig_mod.update_layout(
