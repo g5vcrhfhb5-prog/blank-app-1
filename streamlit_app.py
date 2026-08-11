@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Estilos CSS con importación de la fuente Inter Display
+# Estilos CSS
 st.markdown(
     """
     <style>
@@ -46,7 +46,6 @@ st.markdown(
 )
 
 # --- TABLAS NORMATIVAS (BACKEND) ---
-# Matriz de coeficientes de presión de viento (Ejemplo base - Reemplazar con NCh432)
 tabla_viento_nch = pd.DataFrame({
     "Angulo": [0, 5, 10, 15, 20, 25, 30, 35, 45, 60],
     "Zona_1": [-0.48, -0.47, -0.45, -0.39, -0.38, -0.36, -0.35, -0.35, -0.35, -0.35],
@@ -54,7 +53,7 @@ tabla_viento_nch = pd.DataFrame({
     "Zona_3": [-0.58, -0.58, -0.55, -0.47, -0.45, -0.43, -0.42, -0.42, -0.42, -0.42]
 })
 
-# --- FUNCIÓN AUXILIAR PARA SINCRONIZAR SLIDER Y CAJA NUMÉRICA ---
+# --- FUNCIÓN AUXILIAR ---
 def synced_slider_number(label, min_val, max_val, default_val, step_val, key_base):
     if f"{key_base}_sl" not in st.session_state:
         st.session_state[f"{key_base}_sl"] = default_val
@@ -97,9 +96,14 @@ with col_inputs:
         sep_costaneras = synced_slider_number("Separación de costaneras [m]", 0.1, 5.0, 1.5, 0.1, "sep_cost")
         dist_marcos = synced_slider_number("Distancia entre marcos [m]", 1.0, 20.0, 6.0, 0.5, "dist_marc")
         ancho_estructura = synced_slider_number("Ancho de estructura [m]", 1.0, 40.0, 10.0, 0.5, "ancho_est")
+        
+        # NUEVO PARÁMETRO: Largo de estructura
+        largo_estructura = synced_slider_number("Largo de estructura [m]", 1.0, 100.0, 24.0, 0.5, "largo_est")
+        
         sep_cerchas = synced_slider_number("Separación entre cerchas [m]", 1.0, 20.0, 6.0, 0.5, "sep_cerch")
         pendiente_i = synced_slider_number("Pendiente de techo (i) [%]", 0.0, 100.0, 7.0, 0.5, "pend_tech")
         
+        # Por ahora lo mantenemos manual, pero pronto podremos calcularlo automáticamente (Área = Ancho * Largo / cos(angulo))
         area_total = st.number_input("Área total techo, A [m²]", min_value=1.0, value=1929.0, step=10.0)
 
         # Cálculo automático del ángulo
@@ -146,6 +150,7 @@ with col_visual:
     m2.metric(label="Latitud", value=f"{latitud:.2f}°")
     m3.metric(label="Altitud", value=f"{altitud} m.s.n.m")
 
+    # --- ESQUEMA 1: Representación Gráfica de la Pendiente del Techo ---
     with st.container(border=True):
         st.markdown("**Esquema 1: Inclinación de Cubierta y Geometría**")
         span = ancho_estructura  
@@ -160,6 +165,7 @@ with col_visual:
         fig.update_xaxes(nticks=15)
         st.plotly_chart(fig, use_container_width=True)
 
+    # --- ESQUEMA 2: Distribución de Costaneras ---
     with st.container(border=True):
         st.markdown("**Esquema 2: Modulación y Espaciamiento de Costaneras**")
         sep_x = sep_costaneras * np.cos(np.radians(angulo_techo))
@@ -187,6 +193,55 @@ with col_visual:
         fig_mod.update_yaxes(nticks=12)
         fig_mod.update_xaxes(nticks=15)
         st.plotly_chart(fig_mod, use_container_width=True)
+
+    # --- ESQUEMA 3: Vista en Planta y Modulación de Marcos ---
+    with st.container(border=True):
+        st.markdown("**Esquema 3: Vista en Planta (Modulación de Marcos)**")
+        
+        fig_planta = go.Figure()
+        
+        # Dibujar Perímetro de la nave
+        fig_planta.add_trace(go.Scatter(
+            x=[0, largo_estructura, largo_estructura, 0, 0],
+            y=[0, 0, ancho_estructura, ancho_estructura, 0],
+            mode="lines",
+            name="Perímetro",
+            line=dict(color="gray", width=2, dash="dash")
+        ))
+        
+        # Generar posiciones de los marcos (basados en dist_marcos)
+        num_marcos = int(largo_estructura / dist_marcos) if dist_marcos > 0 else 1
+        x_marcos = np.linspace(0, largo_estructura, num_marcos + 1)
+        
+        # Añadir líneas transversales (Cerchas/Marcos)
+        for x_m in x_marcos:
+            fig_planta.add_trace(go.Scatter(
+                x=[x_m, x_m],
+                y=[0, ancho_estructura],
+                mode="lines+markers",
+                showlegend=False,
+                line=dict(color="#4B8BBE", width=3),
+                marker=dict(size=6, color="#4B8BBE")
+            ))
+            
+        # Añadir un rastro invisible solo para la leyenda
+        fig_planta.add_trace(go.Scatter(
+            x=[None], y=[None], mode="lines+markers", name="Marcos / Cerchas", 
+            line=dict(color="#4B8BBE", width=3), marker=dict(size=6, color="#4B8BBE")
+        ))
+
+        fig_planta.update_layout(
+            title=f"Planta de Estructura ({largo_estructura} m x {ancho_estructura} m)",
+            xaxis_title="Largo de estructura [m]",
+            yaxis_title="Ancho de estructura [m]",
+            template="plotly_dark",
+            height=320,
+            margin=dict(l=20, r=20, t=40, b=20),
+            yaxis=dict(scaleanchor="x", scaleratio=1), # Proporción real (escala 1:1)
+            xaxis=dict(nticks=15)
+        )
+        
+        st.plotly_chart(fig_planta, use_container_width=True)
 
 # ==========================================
 # SECCIÓN 2: CÁLCULO DE CARGAS
@@ -240,5 +295,4 @@ with col_cargas_in:
         rz3.metric("Zona 3", f"{presion_z3:.3f}")
 
 with col_cargas_out:
-    # Espacio para mostrar gráficos o tablas de resultados de cargas
     st.info("👈 Ingresa los parámetros de carga a la izquierda. Aquí mostraremos las tablas de presiones finales y diagramas de aplicación de cargas.")
