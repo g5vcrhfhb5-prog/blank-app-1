@@ -55,22 +55,24 @@ with col_inputs:
 
     # Contenedor nativo que se adapta al modo oscuro/claro
     with st.container(border=True):
-        # 1. Datos Geométricos
+        # 1. Datos Geométricos con Sliders
         st.markdown("#### **1. Geometría de la Estructura**")
-        sep_costaneras = st.number_input(
-            "Separación costaneras (m)", min_value=0.1, value=1.5, step=0.1
+        sep_costaneras = st.slider(
+            "Separación de costaneras [m]", min_value=0.1, max_value=5.0, value=1.0, step=0.1
         )
-        dist_marcos = st.number_input(
-            "Distancia entre marcos, Luz (m)", min_value=1.0, value=6.0, step=0.5
+        dist_marcos = st.slider(
+            "Distancia entre marcos [m]", min_value=1.0, max_value=20.0, value=4.5, step=0.5
         )
-        sep_cerchas = st.number_input(
-            "Separación entre cerchas (m)", min_value=1.0, value=6.0, step=0.5
+        sep_cerchas = st.slider(
+            "Separación entre cerchas [m]", min_value=1.0, max_value=20.0, value=7.0, step=0.5
         )
-        pendiente_i = st.number_input(
-            "Pendiente de techo, i (%)", min_value=0.0, value=7.0, step=0.5
+        pendiente_i = st.slider(
+            "Pendiente de techo (i) [%]", min_value=0.0, max_value=100.0, value=15.0, step=0.5
         )
+        
+        # El área la mantenemos como input numérico ya que sus rangos son muy variables
         area_total = st.number_input(
-            "Área total techo, A ($m^2$)", min_value=1.0, value=1929.0, step=10.0
+            "Área total techo, A [m²]", min_value=1.0, value=1929.0, step=10.0
         )
 
         # Cálculo automático del ángulo de techo en grados a partir de la pendiente (%)
@@ -95,9 +97,8 @@ with col_inputs:
             "Latitud de la estructura (°)", min_value=0.0, value=32.0, step=1.0
         )
         altitud = st.number_input(
-            "Altitud de la zona (m.s.n.m)", min_value=0.0, value=50.0, step=5.0
+            "Altitud de la zona [m.s.n.m]", min_value=0.0, value=50.0, step=5.0
         )
-
 
 with col_visual:
     st.markdown("### 📊 Esquemas Geométricos y Visualización")
@@ -150,8 +151,8 @@ with col_visual:
 
         fig.update_layout(
             title=f"Perfil Transversal del Techo (Pendiente: {pendiente_i}%)",
-            xaxis_title="Luz / Distancia entre marcos (m)",
-            yaxis_title="Altura (m)",
+            xaxis_title="Luz / Distancia entre marcos [m]",
+            yaxis_title="Altura [m]",
             template="plotly_dark", # Adaptado para modo oscuro
             height=320,
             margin=dict(l=20, r=20, t=40, b=20),
@@ -195,8 +196,8 @@ with col_visual:
 
         fig_mod.update_layout(
             title=f"Distribución Modulada (Separación de Costaneras: {sep_costaneras} m)",
-            xaxis_title="Ancho de crujía (m)",
-            yaxis_title="Altura (m)",
+            xaxis_title="Ancho de crujía [m]",
+            yaxis_title="Altura [m]",
             template="plotly_dark", # Adaptado para modo oscuro
             height=280,
             margin=dict(l=20, r=20, t=40, b=20),
