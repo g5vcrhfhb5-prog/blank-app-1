@@ -1,3 +1,5 @@
 streamlit
 numpy
 plotly
+folium
+streamlit-folium
