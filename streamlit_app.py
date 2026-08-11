@@ -96,23 +96,19 @@ with col_inputs:
         sep_costaneras = synced_slider_number("Separación de costaneras [m]", 0.1, 5.0, 1.5, 0.1, "sep_cost")
         dist_marcos = synced_slider_number("Distancia entre marcos [m]", 1.0, 20.0, 6.0, 0.5, "dist_marc")
         ancho_estructura = synced_slider_number("Ancho de estructura [m]", 1.0, 40.0, 10.0, 0.5, "ancho_est")
-        
-        # NUEVO PARÁMETRO: Largo de estructura
         largo_estructura = synced_slider_number("Largo de estructura [m]", 1.0, 100.0, 24.0, 0.5, "largo_est")
-        
         sep_cerchas = synced_slider_number("Separación entre cerchas [m]", 1.0, 20.0, 6.0, 0.5, "sep_cerch")
         pendiente_i = synced_slider_number("Pendiente de techo (i) [%]", 0.0, 100.0, 7.0, 0.5, "pend_tech")
         
-        # Por ahora lo mantenemos manual, pero pronto podremos calcularlo automáticamente (Área = Ancho * Largo / cos(angulo))
+        # Área total referencial (podrá ser automática luego)
         area_total = st.number_input("Área total techo, A [m²]", min_value=1.0, value=1929.0, step=10.0)
 
-        # Cálculo automático del ángulo
         angulo_techo = np.degrees(np.arctan(pendiente_i / 100.0))
 
         st.divider()
 
         st.markdown("#### **2. Emplazamiento y Zona**")
-        st.markdown("Haz clic en cualquier punto del mapa de Chile para establecer la ubicación y altitud.")
+        st.markdown("Haz clic en el mapa de Chile para establecer la ubicación.")
         
         m = folium.Map(location=[-33.4569, -70.6482], zoom_start=5)
         m.add_child(folium.LatLngPopup())
@@ -150,7 +146,7 @@ with col_visual:
     m2.metric(label="Latitud", value=f"{latitud:.2f}°")
     m3.metric(label="Altitud", value=f"{altitud} m.s.n.m")
 
-    # --- ESQUEMA 1: Representación Gráfica de la Pendiente del Techo ---
+    # Esquema 1
     with st.container(border=True):
         st.markdown("**Esquema 1: Inclinación de Cubierta y Geometría**")
         span = ancho_estructura  
@@ -159,25 +155,22 @@ with col_visual:
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=[0, span / 2, span], y=[0, height, 0], mode="lines+markers", name="Perfil de Cubierta", line=dict(color="#4B8BBE", width=4), marker=dict(size=8)))
         fig.add_trace(go.Scatter(x=[0, span], y=[0, 0], mode="lines", name="Línea de Base", line=dict(color="gray", width=2, dash="dash")))
-
-        fig.update_layout(title=f"Perfil Transversal del Techo (Pendiente: {pendiente_i}%)", xaxis_title="Ancho de estructura [m]", yaxis_title="Altura [m]", template="plotly_dark", height=320, margin=dict(l=20, r=20, t=40, b=20))
+        fig.update_layout(title=f"Perfil Transversal (Pendiente: {pendiente_i}%)", xaxis_title="Ancho de estructura [m]", yaxis_title="Altura [m]", template="plotly_dark", height=320, margin=dict(l=20, r=20, t=40, b=20))
         fig.update_yaxes(nticks=12)
         fig.update_xaxes(nticks=15)
         st.plotly_chart(fig, use_container_width=True)
 
-    # --- ESQUEMA 2: Distribución de Costaneras ---
+    # Esquema 2
     with st.container(border=True):
         st.markdown("**Esquema 2: Modulación y Espaciamiento de Costaneras**")
         sep_x = sep_costaneras * np.cos(np.radians(angulo_techo))
         x_left = np.arange(0, span / 2, sep_x).tolist()
         offset_cumbrera = 0.10
         pos_cumbrera_izq = (span / 2) - offset_cumbrera
-        
         if len(x_left) > 0 and (pos_cumbrera_izq - x_left[-1]) < 0.20:
             x_left[-1] = pos_cumbrera_izq
         else:
             x_left.append(pos_cumbrera_izq)
-            
         x_left = np.array(x_left)
         y_left = (2 * height / span) * x_left
         x_right = span - x_left
@@ -188,59 +181,22 @@ with col_visual:
         fig_mod = go.Figure()
         fig_mod.add_trace(go.Scatter(x=x_costaneras, y=y_costaneras, mode="markers", name="Posición de Costaneras", marker=dict(color="orange", size=10, symbol="square")))
         fig_mod.add_trace(go.Scatter(x=[0, span / 2, span], y=[0, height, 0], mode="lines", name="Pendiente", line=dict(color="gray", width=2)))
-
-        fig_mod.update_layout(title=f"Distribución Modulada (Separación de Costaneras: {sep_costaneras} m)", xaxis_title="Ancho de estructura [m]", yaxis_title="Altura [m]", template="plotly_dark", height=280, margin=dict(l=20, r=20, t=40, b=20))
+        fig_mod.update_layout(title=f"Distribución (Separación: {sep_costaneras} m)", xaxis_title="Ancho de estructura [m]", yaxis_title="Altura [m]", template="plotly_dark", height=280, margin=dict(l=20, r=20, t=40, b=20))
         fig_mod.update_yaxes(nticks=12)
         fig_mod.update_xaxes(nticks=15)
         st.plotly_chart(fig_mod, use_container_width=True)
 
-    # --- ESQUEMA 3: Vista en Planta y Modulación de Marcos ---
+    # Esquema 3
     with st.container(border=True):
         st.markdown("**Esquema 3: Vista en Planta (Modulación de Marcos)**")
-        
         fig_planta = go.Figure()
-        
-        # Dibujar Perímetro de la nave
-        fig_planta.add_trace(go.Scatter(
-            x=[0, largo_estructura, largo_estructura, 0, 0],
-            y=[0, 0, ancho_estructura, ancho_estructura, 0],
-            mode="lines",
-            name="Perímetro",
-            line=dict(color="gray", width=2, dash="dash")
-        ))
-        
-        # Generar posiciones de los marcos (basados en dist_marcos)
+        fig_planta.add_trace(go.Scatter(x=[0, largo_estructura, largo_estructura, 0, 0], y=[0, 0, ancho_estructura, ancho_estructura, 0], mode="lines", name="Perímetro", line=dict(color="gray", width=2, dash="dash")))
         num_marcos = int(largo_estructura / dist_marcos) if dist_marcos > 0 else 1
         x_marcos = np.linspace(0, largo_estructura, num_marcos + 1)
-        
-        # Añadir líneas transversales (Cerchas/Marcos)
         for x_m in x_marcos:
-            fig_planta.add_trace(go.Scatter(
-                x=[x_m, x_m],
-                y=[0, ancho_estructura],
-                mode="lines+markers",
-                showlegend=False,
-                line=dict(color="#4B8BBE", width=3),
-                marker=dict(size=6, color="#4B8BBE")
-            ))
-            
-        # Añadir un rastro invisible solo para la leyenda
-        fig_planta.add_trace(go.Scatter(
-            x=[None], y=[None], mode="lines+markers", name="Marcos / Cerchas", 
-            line=dict(color="#4B8BBE", width=3), marker=dict(size=6, color="#4B8BBE")
-        ))
-
-        fig_planta.update_layout(
-            title=f"Planta de Estructura ({largo_estructura} m x {ancho_estructura} m)",
-            xaxis_title="Largo de estructura [m]",
-            yaxis_title="Ancho de estructura [m]",
-            template="plotly_dark",
-            height=320,
-            margin=dict(l=20, r=20, t=40, b=20),
-            yaxis=dict(scaleanchor="x", scaleratio=1), # Proporción real (escala 1:1)
-            xaxis=dict(nticks=15)
-        )
-        
+            fig_planta.add_trace(go.Scatter(x=[x_m, x_m], y=[0, ancho_estructura], mode="lines+markers", showlegend=False, line=dict(color="#4B8BBE", width=3), marker=dict(size=6, color="#4B8BBE")))
+        fig_planta.add_trace(go.Scatter(x=[None], y=[None], mode="lines+markers", name="Marcos / Cerchas", line=dict(color="#4B8BBE", width=3), marker=dict(size=6, color="#4B8BBE")))
+        fig_planta.update_layout(title=f"Planta de Estructura ({largo_estructura} m x {ancho_estructura} m)", xaxis_title="Largo de estructura [m]", yaxis_title="Ancho de estructura [m]", template="plotly_dark", height=320, margin=dict(l=20, r=20, t=40, b=20), yaxis=dict(scaleanchor="x", scaleratio=1), xaxis=dict(nticks=15))
         st.plotly_chart(fig_planta, use_container_width=True)
 
 # ==========================================
@@ -251,11 +207,13 @@ st.markdown('<div class="sub-header">CÁLCULO DE CARGAS</div>', unsafe_allow_htm
 col_cargas_in, col_cargas_out = st.columns([1.2, 1.8], gap="large")
 
 with col_cargas_in:
-    with st.expander("🧱 1. Cargas de Peso Propio (Dead)", expanded=False):
-        peso_cubierta = st.number_input("Peso propio cubierta [kgf/m²]", min_value=0.0, value=20.0, step=1.0)
-        peso_aislacion = st.number_input("Peso aislación [kgf/m²]", min_value=0.0, value=0.0, step=1.0)
-        carga_adicional = st.number_input("Carga adicional [kgf/m²]", min_value=0.0, value=0.0, step=1.0)
-        peso_costanera_ml = st.number_input("Peso lineal costanera estimada [kgf/m]", min_value=0.0, value=6.67, step=0.1)
+    # 1. PESO PROPIO ACTUALIZADO
+    with st.expander("🧱 1. PESO PROPIO (CMUERTA)", expanded=True):
+        st.markdown("Ingrese las estimaciones de cargas muertas de la estructura.")
+        carga_puntual = st.number_input("CARGA PUNTUAL EN COSTANERA [kgf]", min_value=0.0, value=100.0, step=10.0)
+        peso_costanera_ml = st.number_input("PESO PROPIO DE COSTANERA [kgf/m]", min_value=0.0, value=6.67, step=0.1, help="Se rellenará automáticamente al integrar la base de datos.")
+        peso_cubierta = st.number_input("PESO PROPIO DE CUBIERTA [kgf/m²]", min_value=0.0, value=15.0, step=1.0)
+        carga_adicional = st.number_input("CARGA ADICIONAL [kgf/m²]", min_value=0.0, value=5.0, step=1.0)
 
     with st.expander("🌧️ 2. Sobrecarga de Techo (Lr)", expanded=False):
         sobrecarga_inicial = st.number_input("Sobrecarga techo inicial, Lo [kgf/m²]", min_value=0.0, value=100.0, step=10.0)
@@ -270,29 +228,47 @@ with col_cargas_in:
         factor_term_ct = c4.number_input("Condición térmica, Ct", value=1.0, step=0.1)
         factor_imp_is = st.number_input("Factor de importancia, I (Nieve)", value=1.0, step=0.1)
 
-    with st.expander("💨 4. Cargas de Viento (W)", expanded=True):
-        st.markdown("Parámetros y presiones interpoladas automáticamente.")
+    with st.expander("💨 4. Cargas de Viento (W)", expanded=False):
         c_v1, c_v2 = st.columns(2)
         vel_viento = c_v1.number_input("Velocidad básica, V [m/s]", min_value=0.0, value=35.0, step=1.0)
         cat_exposicion = c_v2.selectbox("Categoría Exposición", options=["B", "C", "D"])
-        
         c_v3, c_v4, c_v5 = st.columns(3)
         factor_ajuste_lambda = c_v3.number_input("Factor λ", value=1.56, step=0.01)
         factor_imp_iw = c_v4.number_input("Factor I", value=1.0, step=0.1)
         factor_kzt = c_v5.number_input("Factor Kzt", value=1.0, step=0.1)
-        
-        st.markdown("---")
-        st.markdown(f"**Coeficientes Interpolados para {angulo_techo:.2f}°**")
-        
-        # INTERPOLACIÓN AUTOMÁTICA DE VIENTO
-        presion_z1 = np.interp(angulo_techo, tabla_viento_nch["Angulo"], tabla_viento_nch["Zona_1"])
-        presion_z2 = np.interp(angulo_techo, tabla_viento_nch["Angulo"], tabla_viento_nch["Zona_2"])
-        presion_z3 = np.interp(angulo_techo, tabla_viento_nch["Angulo"], tabla_viento_nch["Zona_3"])
-        
-        rz1, rz2, rz3 = st.columns(3)
-        rz1.metric("Zona 1", f"{presion_z1:.3f}")
-        rz2.metric("Zona 2", f"{presion_z2:.3f}")
-        rz3.metric("Zona 3", f"{presion_z3:.3f}")
 
+# CÁLCULOS Y VISUALIZACIÓN DE DESCARGAS DE PESO PROPIO
 with col_cargas_out:
-    st.info("👈 Ingresa los parámetros de carga a la izquierda. Aquí mostraremos las tablas de presiones finales y diagramas de aplicación de cargas.")
+    st.markdown("### 📊 Solicitaciones: Cargas Estáticas y Descargas")
+    
+    # Cálculos geométricos y de áreas tributarias
+    largo_inclinado_vertiente = (ancho_estructura / 2) / np.cos(np.radians(angulo_techo))
+    
+    # Área tributaria de una costanera (separación en la pendiente x distancia entre marcos)
+    area_trib_costanera = sep_costaneras * dist_marcos
+    
+    # Área tributaria de una cercha interior (ancho total de la estructura por la distancia entre marcos)
+    area_trib_cercha_planta = ancho_estructura * dist_marcos
+    area_trib_cercha_inclinada = (ancho_estructura / np.cos(np.radians(angulo_techo))) * dist_marcos
+    
+    # Cargas distribuidas (q)
+    # 1. Sobre la costanera (kgf/m lineal sobre el eje de la costanera)
+    q_lineal_costanera = ((peso_cubierta + carga_adicional) * sep_costaneras) + peso_costanera_ml
+    
+    # 2. Sobre la cercha (kgf/m lineal a lo largo de la cuerda superior de la cercha)
+    # Se suma la cubierta y el peso prorrateado de las costaneras
+    q_lineal_cercha = ((peso_cubierta + carga_adicional) * dist_marcos) + (peso_costanera_ml * dist_marcos / sep_costaneras)
+    
+    with st.container(border=True):
+        st.markdown("**🔹 Descargas Lineales de Peso Propio sobre Costaneras**")
+        col_res1, col_res2 = st.columns(2)
+        col_res1.metric("Área Tributaria (Costanera)", f"{area_trib_costanera:.2f} m²")
+        col_res2.metric("Carga Lineal (q)", f"{q_lineal_costanera:.2f} kgf/m")
+        st.caption(f"*Nota: El diseño considerará además la Carga Puntual ingresada de **{carga_puntual} kgf** para verificar el corte y momento máximo.*")
+        
+    with st.container(border=True):
+        st.markdown("**🔹 Descargas Lineales Equivalentes sobre Marcos/Cerchas**")
+        col_res3, col_res4 = st.columns(2)
+        col_res3.metric("Área Tributaria Inclinada (Cercha)", f"{area_trib_cercha_inclinada:.2f} m²")
+        col_res4.metric("Carga Lineal (Q)", f"{q_lineal_cercha:.2f} kgf/m")
+        st.caption("*Esta carga asume una distribución uniforme proyectada a lo largo de los elementos principales del marco.*")
