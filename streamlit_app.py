@@ -121,7 +121,7 @@ with col_inputs:
         
         latitud = -33.4569
         longitud = -70.6482
-        altitud_mapa = 500.0
+        altitud_mapa = 50.0
         
         if map_data and map_data.get("last_clicked"):
             latitud = map_data["last_clicked"]["lat"]
@@ -152,6 +152,37 @@ with col_inputs:
             altitud = st.number_input(
                 "Altitud de la zona [m.s.n.m]", min_value=0.0, value=50.0, step=5.0
             )
+            
+    # --- NUEVA SECCIÓN: CÁLCULO DE CARGAS ---
+    st.markdown("### ⚖️ Cálculo de Cargas")
+    
+    with st.expander("🧱 1. Cargas de Peso Propio (Dead)", expanded=False):
+        st.markdown("Ingrese las cargas muertas estimadas de la cubierta.")
+        peso_cubierta = st.number_input("Peso propio cubierta [kgf/m²]", min_value=0.0, value=20.0, step=1.0)
+        peso_aislacion = st.number_input("Peso aislación [kgf/m²]", min_value=0.0, value=0.0, step=1.0)
+        carga_adicional = st.number_input("Carga adicional [kgf/m²]", min_value=0.0, value=0.0, step=1.0)
+        peso_costanera_ml = st.number_input("Peso lineal costanera estimada [kgf/m]", min_value=0.0, value=6.67, step=0.1)
+
+    with st.expander("🌧️ 2. Sobrecarga de Techo (Lr)", expanded=False):
+        st.markdown("Definición de cargas vivas de techo.")
+        sobrecarga_inicial = st.number_input("Sobrecarga techo inicial, Lo [kgf/m²]", min_value=0.0, value=100.0, step=10.0)
+        c1, c2 = st.columns(2)
+        red_area = c1.number_input("Reducción por área, R1", min_value=0.0, max_value=1.0, value=0.6, step=0.1)
+        red_pendiente = c2.number_input("Reducción por pendiente, R2", min_value=0.0, max_value=1.0, value=0.84, step=0.1)
+
+    with st.expander("❄️ 3. Cargas de Nieve (S)", expanded=False):
+        carga_nieve_pg = st.number_input("Carga básica de nieve, pg [kgf/m²]", min_value=0.0, value=25.0, step=5.0)
+        c3, c4 = st.columns(2)
+        factor_exp_ce = c3.number_input("Factor exposición, Ce", value=1.0, step=0.1)
+        factor_term_ct = c4.number_input("Condición térmica, Ct", value=1.0, step=0.1)
+        factor_imp_is = st.number_input("Factor de importancia, I (Nieve)", value=1.0, step=0.1)
+
+    with st.expander("💨 4. Cargas de Viento (W)", expanded=False):
+        vel_viento = st.number_input("Velocidad básica del viento, V [m/s]", min_value=0.0, value=35.0, step=1.0)
+        cat_exposicion = st.selectbox("Categoría Exposición", options=["Exposición B", "Exposición C", "Exposición D"])
+        factor_ajuste_lambda = st.number_input("Factor de ajuste, λ", value=1.56, step=0.01)
+        factor_imp_iw = st.number_input("Factor de importancia, I (Viento)", value=1.0, step=0.1)
+        factor_kzt = st.number_input("Factor topográfico, Kzt", value=1.0, step=0.1)
 
 with col_visual:
     st.markdown("### 📊 Esquemas Geométricos y Visualización")
@@ -180,6 +211,11 @@ with col_visual:
             height=320, 
             margin=dict(l=20, r=20, t=40, b=20)
         )
+        
+        # Aumentar la densidad de la grilla (subdivisiones)
+        fig.update_yaxes(nticks=12)
+        fig.update_xaxes(nticks=15)
+        
         st.plotly_chart(fig, use_container_width=True)
 
     # --- ESQUEMA 2: Distribución de Costaneras ---
@@ -225,4 +261,9 @@ with col_visual:
             height=280, 
             margin=dict(l=20, r=20, t=40, b=20)
         )
+        
+        # Aumentar la densidad de la grilla (subdivisiones)
+        fig_mod.update_yaxes(nticks=12)
+        fig_mod.update_xaxes(nticks=15)
+        
         st.plotly_chart(fig_mod, use_container_width=True)
