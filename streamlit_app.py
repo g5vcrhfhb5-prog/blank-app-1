@@ -43,7 +43,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- FUNCIÓN AUXILIAR CORREGIDA PARA SINCRONIZAR SLIDER Y CAJA NUMÉRICA ---
+# --- FUNCIÓN AUXILIAR PARA SINCRONIZAR SLIDER Y CAJA NUMÉRICA ---
 def synced_slider_number(label, min_val, max_val, default_val, step_val, key_base):
     # Inicializar variables de estado si no existen
     if f"{key_base}_sl" not in st.session_state:
@@ -71,7 +71,7 @@ def synced_slider_number(label, min_val, max_val, default_val, step_val, key_bas
             label, min_value=min_val, max_value=max_val, step=step_val,
             key=f"{key_base}_num", on_change=sync_from_num, label_visibility="collapsed"
         )
-    # Retornar el valor actual sincronizado para usarlo en los gráficos
+    # Retornar el valor actual sincronizado para usarlo en los cálculos
     return st.session_state[f"{key_base}_num"]
 
 
@@ -94,6 +94,9 @@ with col_inputs:
         dist_marcos = synced_slider_number(
             "Distancia entre marcos [m]", 1.0, 20.0, 6.0, 0.5, "dist_marc"
         )
+        ancho_estructura = synced_slider_number(
+            "Ancho de estructura [m]", 1.0, 40.0, 10.0, 0.5, "ancho_est"
+        )
         sep_cerchas = synced_slider_number(
             "Separación entre cerchas [m]", 1.0, 20.0, 6.0, 0.5, "sep_cerch"
         )
@@ -112,17 +115,17 @@ with col_inputs:
 
         # 2. Emplazamiento y Ubicación con Mapa Interactivo
         st.markdown("#### **2. Emplazamiento y Zona**")
-        st.markdown("Haz clic en cualquier punto del mapa de Chile para establecer la ubicación.")
+        st.markdown("Haz clic en cualquier punto del mapa de Chile para establecer la ubicación y altitud.")
         
         # Crear mapa centrado en Chile
         m = folium.Map(location=[-33.4569, -70.6482], zoom_start=5)
         # Añadir funcionalidad de clic para mostrar coordenadas
         m.add_child(folium.LatLngPopup())
         
-        # Renderizar mapa en Streamlit y capturar exclusivamente los clics para no recargar en exceso
+        # Renderizar mapa en Streamlit y capturar exclusivamente los clics
         map_data = st_folium(m, height=350, use_container_width=True, returned_objects=["last_clicked"])
         
-        # Extraer Latitud y Longitud por defecto (Santiago)
+        # Extraer Latitud y Longitud por defecto
         latitud = -33.4569
         longitud = -70.6482
         altitud_mapa = 500.0
@@ -136,7 +139,7 @@ with col_inputs:
                 url = f"https://api.open-meteo.com/v1/elevation?latitude={latitud}&longitude={longitud}"
                 resp = requests.get(url).json()
                 altitud_mapa = resp['elevation'][0]
-            except Exception as e:
+            except Exception:
                 altitud_mapa = 0.0
             
         c_lat, c_lon = st.columns(2)
@@ -171,15 +174,22 @@ with col_visual:
     with st.container(border=True):
         st.markdown("**Esquema 1: Inclinación de Cubierta y Geometría**")
 
-        # Variables conectadas dinámicamente a los inputs
-        span = dist_marcos  
+        # Variables conectadas dinámicamente al ancho de estructura
+        span = ancho_estructura  
         height = span * (pendiente_i / 100.0) / 2.0  
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=[0, span / 2, span], y=[0, height, 0], mode="lines+markers", name="Perfil de Cubierta", line=dict(color="#4B8BBE", width=4), marker=dict(size=8)))
         fig.add_trace(go.Scatter(x=[0, span], y=[0, 0], mode="lines", name="Línea de Base", line=dict(color="gray", width=2, dash="dash")))
 
-        fig.update_layout(title=f"Perfil Transversal del Techo (Pendiente: {pendiente_i}%)", xaxis_title="Luz / Distancia entre marcos [m]", yaxis_title="Altura [m]", template="plotly_dark", height=320, margin=dict(l=20, r=20, t=40, b=20))
+        fig.update_layout(
+            title=f"Perfil Transversal del Techo (Pendiente: {pendiente_i}%)", 
+            xaxis_title="Ancho de estructura [m]", 
+            yaxis_title="Altura [m]", 
+            template="plotly_dark", 
+            height=320, 
+            margin=dict(l=20, r=20, t=40, b=20)
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     # --- ESQUEMA 2: Distribución de Costaneras ---
@@ -194,5 +204,12 @@ with col_visual:
         fig_mod.add_trace(go.Scatter(x=x_costaneras, y=y_costaneras, mode="markers", name="Posición de Costaneras", marker=dict(color="orange", size=12, symbol="square")))
         fig_mod.add_trace(go.Scatter(x=[0, span / 2, span], y=[0, height, 0], mode="lines", name="Pendiente", line=dict(color="gray", width=2)))
 
-        fig_mod.update_layout(title=f"Distribución Modulada (Separación de Costaneras: {sep_costaneras} m)", xaxis_title="Ancho de crujía [m]", yaxis_title="Altura [m]", template="plotly_dark", height=280, margin=dict(l=20, r=20, t=40, b=20))
+        fig_mod.update_layout(
+            title=f"Distribución Modulada (Separación de Costaneras: {sep_costaneras} m)", 
+            xaxis_title="Ancho de estructura [m]", 
+            yaxis_title="Altura [m]", 
+            template="plotly_dark", 
+            height=280, 
+            margin=dict(l=20, r=20, t=40, b=20)
+        )
         st.plotly_chart(fig_mod, use_container_width=True)
