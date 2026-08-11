@@ -100,9 +100,7 @@ with col_inputs:
         sep_cerchas = synced_slider_number("Separación entre cerchas [m]", 1.0, 20.0, 6.0, 0.5, "sep_cerch")
         pendiente_i = synced_slider_number("Pendiente de techo (i) [%]", 0.0, 100.0, 7.0, 0.5, "pend_tech")
         
-        # Área total referencial (podrá ser automática luego)
         area_total = st.number_input("Área total techo, A [m²]", min_value=1.0, value=1929.0, step=10.0)
-
         angulo_techo = np.degrees(np.arctan(pendiente_i / 100.0))
 
         st.divider()
@@ -146,7 +144,6 @@ with col_visual:
     m2.metric(label="Latitud", value=f"{latitud:.2f}°")
     m3.metric(label="Altitud", value=f"{altitud} m.s.n.m")
 
-    # Esquema 1
     with st.container(border=True):
         st.markdown("**Esquema 1: Inclinación de Cubierta y Geometría**")
         span = ancho_estructura  
@@ -160,7 +157,6 @@ with col_visual:
         fig.update_xaxes(nticks=15)
         st.plotly_chart(fig, use_container_width=True)
 
-    # Esquema 2
     with st.container(border=True):
         st.markdown("**Esquema 2: Modulación y Espaciamiento de Costaneras**")
         sep_x = sep_costaneras * np.cos(np.radians(angulo_techo))
@@ -186,7 +182,6 @@ with col_visual:
         fig_mod.update_xaxes(nticks=15)
         st.plotly_chart(fig_mod, use_container_width=True)
 
-    # Esquema 3
     with st.container(border=True):
         st.markdown("**Esquema 3: Vista en Planta (Modulación de Marcos)**")
         fig_planta = go.Figure()
@@ -244,23 +239,19 @@ with col_cargas_out:
     # Cálculos geométricos y de áreas tributarias
     largo_inclinado_vertiente = (ancho_estructura / 2) / np.cos(np.radians(angulo_techo))
     
-    # Área tributaria de una costanera (separación en la pendiente x distancia entre marcos)
     area_trib_costanera = sep_costaneras * dist_marcos
-    
-    # Área tributaria de una cercha interior (ancho total de la estructura por la distancia entre marcos)
-    area_trib_cercha_planta = ancho_estructura * dist_marcos
     area_trib_cercha_inclinada = (ancho_estructura / np.cos(np.radians(angulo_techo))) * dist_marcos
     
     # Cargas distribuidas (q)
-    # 1. Sobre la costanera (kgf/m lineal sobre el eje de la costanera)
     q_lineal_costanera = ((peso_cubierta + carga_adicional) * sep_costaneras) + peso_costanera_ml
-    
-    # 2. Sobre la cercha (kgf/m lineal a lo largo de la cuerda superior de la cercha)
-    # Se suma la cubierta y el peso prorrateado de las costaneras
     q_lineal_cercha = ((peso_cubierta + carga_adicional) * dist_marcos) + (peso_costanera_ml * dist_marcos / sep_costaneras)
     
     with st.container(border=True):
         st.markdown("**🔹 Descargas Lineales de Peso Propio sobre Costaneras**")
+        
+        st.markdown(r"**Área Tributaria:** $$A_{t,cost} = S_{cost} \cdot D_{marcos}$$")
+        st.markdown(r"**Carga Lineal:** $$q_{cost} = (P_{cub} + C_{adic}) \cdot S_{cost} + P_{cost}$$")
+        
         col_res1, col_res2 = st.columns(2)
         col_res1.metric("Área Tributaria (Costanera)", f"{area_trib_costanera:.2f} m²")
         col_res2.metric("Carga Lineal (q)", f"{q_lineal_costanera:.2f} kgf/m")
@@ -268,6 +259,10 @@ with col_cargas_out:
         
     with st.container(border=True):
         st.markdown("**🔹 Descargas Lineales Equivalentes sobre Marcos/Cerchas**")
+        
+        st.markdown(r"**Área Tributaria:** $$A_{t,cercha} = \left( \frac{W_{est}}{\cos(\alpha)} \right) \cdot D_{marcos}$$")
+        st.markdown(r"**Carga Lineal:** $$Q_{cercha} = (P_{cub} + C_{adic}) \cdot D_{marcos} + P_{cost} \cdot \left( \frac{D_{marcos}}{S_{cost}} \right)$$")
+        
         col_res3, col_res4 = st.columns(2)
         col_res3.metric("Área Tributaria Inclinada (Cercha)", f"{area_trib_cercha_inclinada:.2f} m²")
         col_res4.metric("Carga Lineal (Q)", f"{q_lineal_cercha:.2f} kgf/m")
